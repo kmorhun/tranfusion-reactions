@@ -7,11 +7,11 @@
 4. Oh dang ig we don't have our extensions . . . install gitlens, Jupyter, and your other usual toppings (it comes with python)
 5. You should probably log in to your github on command line and clone this repo
 6. ~~Time to install conda (I know I know, pyenv-venv is better, but Kateryna likes Conda)~~ Update: she let us use pyenv-virtualenv -- thanks Kat
-    - install pyenv virtualenv
+    - install pyenv virtualenv (see [this page](https://github.com/pyenv/pyenv-virtualenv) for more information)
         - `git clone https://github.com/pyenv/pyenv-virtualenv.git $(pyenv root)/plugins/pyenv-virtualenv`
         - `echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc`
         - `exec "$SHELL"` (restart shell)
-    - install pyenv
+    - install pyenv (see [this page](https://github.com/pyenv/pyenv) for more instructions)
         - `curl https://pyenv.run | bash`
         - `export PYENV_ROOT="$HOME/.pyenv"`
         - `[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"`
