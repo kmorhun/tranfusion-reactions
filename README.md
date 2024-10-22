@@ -21,4 +21,8 @@
     - make a virtual environment `pyenv virtualenv 3.12 transfusion`
     - make a .python-version file and put the name of the environment (here "transfusion")
 7.  Be happy for a minute because pyenv virtualenv is all working smoothly, there weren't any errors, and life is good :) -- see Kat, it is better
-8. 
+8. Now's probably a good time to log in to github
+    - `git config --global user.name "your_username"`
+    - `git config --global user.email "your_email_address@example.com"`
+    - `git config --global --list` to check configs
+9. If the kernel doesn't show up, guess what? try reloading (lol)
