@@ -1,7 +1,7 @@
 # transfusion-reactions
 
 # Set Up Instructions
-1. Connect to MIMIC as descirbed in PSET 2 :)
+1. Connect to MIMIC as described in PSET 2 :)
 2. Click the funny little "Activate Cloud Shell" button in the top right, then open it in a new pane
 3. Click the Open Editor button and voila you're in a mini fake vs code environment
 4. Oh dang ig we don't have our extensions . . . install gitlens, Jupyter, and your other usual toppings (it comes with python)
@@ -28,4 +28,5 @@
 8. If the kernel doesn't show up, reload the page :o
 9. Install the required libraries: `pip install -r requirements.txt`
 10. Create an file called `.env`, and populate it with the following values:
-    - ```BIGQUERY_PROJECT_NAME="your-project-name"```
+    - ```BIGQUERY_PROJECT_NAME="your-project-name"
+         BASE_QUERY_PATH="filepath_to_queries_folder"```
