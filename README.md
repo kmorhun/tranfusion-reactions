@@ -25,4 +25,7 @@
     - `git config --global user.name "your_username"`
     - `git config --global user.email "your_email_address@example.com"`
     - `git config --global --list` to check configs
-9. If the kernel doesn't show up, guess what? try reloading (lol)
+9. If the kernel doesn't show up, reload the page :o
+10. Install the required libraries: `pip install -r requirements.txt`
+11. Create an file called `.env`, and populate it with the following values:
+    - ```BIGQUERY_PROJECT_NAME="your-project-name"```
