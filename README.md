@@ -28,5 +28,5 @@
 8. If the kernel doesn't show up, reload the page :o
 9. Install the required libraries: `pip install -r requirements.txt`
 10. Create an file called `.env`, and populate it with the following values:
-    - ```BIGQUERY_PROJECT_NAME="your-project-name"
-         BASE_QUERY_PATH="filepath_to_queries_folder"```
+    - `BIGQUERY_PROJECT_NAME="your-project-name"`
+    - `BASE_QUERY_PATH="filepath_to_queries_folder"`
