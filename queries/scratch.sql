@@ -1,10 +1,10 @@
-SELECT itemid, label, category, dbsource, COUNT(*) AS count
-FROM physionet-data.mimiciii_clinical.d_items
-WHERE (LOWER(label) LIKE '%rbc%' 
-OR LOWER(label) LIKE '%platelet%'
-OR LOWER(label) LIKE '%ffp%'
-OR LOWER(label) LIKE '%cryoprecipitate%'
-OR LOWER(label) LIKE '%blood–– cell%'
-OR LOWER(label) LIKE '%pheresis%')
-AND dbsource='carevue'
-GROUP BY itemid, label, category, dbsource;
+-- SELECT count(*) 
+-- FROM physionet-data.mimiciii_clinical.inputevents_mv
+-- WHERE amount < 0;
+-- -- count = 5582 rows 
+
+SELECT count(*) 
+FROM physionet-data.mimiciii_clinical.inputevents_mv
+WHERE amount < 0 
+AND CANCELREASON < 1;
+-- count = 20 rows
