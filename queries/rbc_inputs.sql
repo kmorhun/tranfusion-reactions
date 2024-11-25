@@ -20,6 +20,7 @@ SELECT inputs.subject_id,
     inputs.totalamountuom,
     inputs.statusdescription, 
     inputs.cancelreason, 
+    inputs.isopenbag,
     inputs.orderid, 
     inputs.linkorderid
 FROM physionet-data.mimiciii_clinical.inputevents_mv inputs 
@@ -46,5 +47,6 @@ GROUP BY inputs.subject_id,
     inputs.totalamountuom,
     inputs.statusdescription, 
     inputs.cancelreason, 
+    inputs.isopenbag,
     inputs.orderid, 
     inputs.linkorderid;
