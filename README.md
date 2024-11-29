@@ -30,3 +30,23 @@
 10. Create an file called `.env`, and populate it with the following values:
     - `BIGQUERY_PROJECT_NAME="your-project-name"`
     - `BASE_QUERY_PATH="filepath_to_queries_folder"`
+
+## Alternate setup instructions with GCloud CLI and a remote tunnel from VS Code
+
+1. Install the (GCloud cli)[https://cloud.google.com/sdk/docs/install-sdk]
+2. Follow (these instructions)[https://cloud.google.com/workstations/docs/develop-code-using-local-vscode-editor#extension-marketplace] to open a cloud workstation. You may need to enable the API. Expect to wait ~20 mins for the workspace configurations to get created.
+   1. Under Machine Settings > advanced options, uncheck the "disable SSH" option
+   2. Under Machine Settings > cost savings, set the timeouts to 1 hour and 6 hours to save costs
+   3. These were Kat's settings for the gcloud start-tcp-tunnel command
+    ```
+    gcloud workstations start-tcp-tunnel \
+        --project=transfusion-reactions \
+        --region=northamerica-northeast1 \
+        --cluster=transfusion-reaction-cluster  \
+        --config=transfusion-reaction-workstation  \
+        transfusion-reaction-workstation 22
+    ```
+   4. When you're connecting to the remote-ssh server in VS Code, be sure to add user@localhost:XXXXXXXXXXXXXX to your configurations, so that you can connect to it more easily in the future.
+3. If the workstation goes down, go to the workstation tab in GCP online and activate the workstation
+4. In theory you can set up the environment from above in the workstation, but I can't get it to work, so Kat gives up :(
+
