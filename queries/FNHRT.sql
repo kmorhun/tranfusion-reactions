@@ -54,7 +54,7 @@ potential_fnthr AS (
         tt.temperature_fahrenheit,
         COALESCE(bt.baseline_temp_f, 98.6) AS baseline_temp_f,
         CASE 
-            WHEN bt.baseline_temp_f >= 98.6 AND tt.temperature_fahrenheit >= bt.baseline_temp_f + 1.8 THEN 'Temperature rise ≥1°C (1.8°F) above baseline'
+            WHEN tt.temperature_fahrenheit >= bt.baseline_temp_f + 1.8 THEN 'Temperature rise ≥1°C (1.8°F) above baseline'
             WHEN tt.temperature_fahrenheit >= 100.4 THEN 'Temperature ≥38°C (100.4°F)'
             ELSE NULL
         END AS fnthr_criteria
