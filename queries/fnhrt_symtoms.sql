@@ -1,52 +1,67 @@
--- Step 1: Find baseline temperature readings in Fahrenheit taken before transfusion starts
-WITH baseline_temp AS (
-    SELECT
-        subject_id,
-        hadm_id,
-        icustay_id,
-        MIN(charttime) AS baseline_time,
-        MAX(valuenum) AS baseline_temp_f -- Baseline temperature before transfusion in Fahrenheit
-    FROM
-        physionet-data.mimiciii_clinical.chartevents
-    WHERE
-        itemid IN (223761, 676) -- Temperature measurements
-        AND valuenum >= 98.6 -- Baseline temperature of 37°C in Fahrenheit
-        AND charttime < (
-            SELECT MIN(starttime)
-            FROM physionet-data.mimiciii_clinical.inputevents_mv
-            WHERE subject_id = chartevents.subject_id
-              AND itemid IN (225168, 225170, 225171, 227070, 227071, 227072, 220970, 227532, 226367, 226368, 226369, 226371)
-        )
-    GROUP BY subject_id, hadm_id, icustay_id
-),
 
--- Step 4: Identify additional symptoms (chills, rigors, respiratory rate, blood pressure, anxiety, headache), excluding null values
-symptoms AS (
+CREATE TEMPORARY TABLE transfusion_temp AS
+-- temp_table is from all_blood_inputs.sql
+SELECT inputs.subject_id, 
+    inputs.hadm_id, 
+    inputs.icustay_id, 
+    MIN(inputs.starttime) as transfusion_starttime,
+    MAX(inputs.endtime) as transfusion_endtime, 
+    COUNT(inputs.endtime) as num_segments,
+    DATETIME_DIFF(MAX(inputs.endtime), MIN(inputs.starttime), MINUTE) AS duration_minutes,
+    CASE 
+        WHEN inputs.amountuom = "uL" THEN SUM(inputs.amount * 1000) 
+        ELSE SUM(inputs.amount)
+    END AS amount,
+    CASE 
+        WHEN inputs.amountuom = "uL" THEN "ml"
+        ELSE inputs.amountuom 
+    END AS amountuom,
+    inputs.itemid, 
+    items.label,
+    inputs.linkorderid
+FROM physionet-data.mimiciii_clinical.inputevents_mv inputs 
+INNER JOIN physionet-data.mimiciii_clinical.d_items items ON inputs.itemid = items.itemid
+WHERE inputs.itemid IN (225168, 225170, 225171, 220970, 227532)
+    AND NOT inputs.statusdescription = "Rewritten"
+GROUP BY inputs.linkorderid,
+    inputs.subject_id, 
+    inputs.hadm_id, 
+    inputs.icustay_id, 
+    inputs.amountuom,
+    inputs.itemid,
+    items.label;
+
+-- Step 2: Extract relevant notes from noteevents mentioning "rigors" or "chills"
+With note_symptoms AS (
     SELECT
-        ce.subject_id,
-        ce.hadm_id,
-        ce.icustay_id,
-        ce.charttime AS symptom_time,
-        di.label AS symptom
+        ne.subject_id,
+        ne.hadm_id,
+        tt.icustay_id,
+        tt.transfusion_starttime,
+        tt.transfusion_endtime,
+        ne.chartdate,
+        ne.charttime,
+        ne.text,
+        CASE
+            WHEN LOWER(ne.text) LIKE '%rigor%' AND LOWER(ne.text) LIKE '%chill%' THEN 'Rigors, Chills'
+            WHEN LOWER(ne.text) LIKE '%rigor%' THEN 'Rigors'
+            WHEN LOWER(ne.text) LIKE '%chill%' THEN 'Chills'
+            ELSE NULL
+        END AS symptom_mentioned
     FROM
-        physionet-data.mimiciii_clinical.chartevents ce
+        physionet-data.mimiciii_notes.noteevents ne
     JOIN
-        physionet-data.mimiciii_clinical.d_items di
+        transfusion_temp tt
     ON
-        ce.itemid = di.itemid
+        ne.subject_id = tt.subject_id
+        AND ne.hadm_id = tt.hadm_id
     WHERE
-        LOWER(di.label) IN ('chills', 'rigors', 'respiratory rate', 'blood pressure', 'anxiety', 'headache')
-        AND ce.charttime >= (
-            SELECT MIN(starttime)
-            FROM physionet-data.mimiciii_clinical.inputevents_mv
-            WHERE subject_id = ce.subject_id
-              AND itemid IN (225168, 225170, 225171, 227070, 227071, 227072, 220970, 227532, 226367, 226368, 226369, 226371)
-        )
-        AND di.label IS NOT NULL -- Ensure symptom is not null
+        (LOWER(ne.text) LIKE '%chill%'
+        OR LOWER(ne.text) LIKE '%rigor%')
+        AND ne.charttime BETWEEN tt.transfusion_starttime AND TIMESTAMP_ADD(tt.transfusion_endtime, INTERVAL 4 HOUR)
 )
 
--- Step 6: Select all FNHTR candidates with relevant details
+-- Final Query: Select all relevant notes with "rigors" or "chills"
 SELECT *
-FROM symptoms
-WHERE fnthr_criteria IS NOT NULL
+FROM note_symptoms
 ORDER BY subject_id, transfusion_starttime;
