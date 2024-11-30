@@ -10,69 +10,82 @@ WITH baseline_temp AS (
         physionet-data.mimiciii_clinical.chartevents
     WHERE
         itemid IN (223761, 676) -- Temperature measurements
-        AND valuenum >= 98.6 -- Baseline temperature of 37°C in Fahrenheit
         AND charttime < (
             SELECT MIN(starttime)
             FROM physionet-data.mimiciii_clinical.inputevents_mv
             WHERE subject_id = chartevents.subject_id
-              AND itemid IN (225168, 225170, 225171, 227070, 227071, 227072, 220970, 227532, 226367, 226368, 226369, 226371)
+              AND itemid IN (225168, 225170, 225171, 220970, 227532)
         )
     GROUP BY subject_id, hadm_id, icustay_id
 ),
 
--- Step 2: Identify transfusion events and link with post-transfusion temperature readings in Fahrenheit
-transfusion_temp AS (
+-- Step 2: Identify transfusion events and define transfusion times
+transfusion_events AS (
     SELECT
         bt.subject_id,
         bt.hadm_id,
         bt.icustay_id,
-        bt.starttime AS transfusion_starttime,
-        ce.charttime AS temp_recorded_time,
-        ce.valuenum AS temperature_fahrenheit,
-        bt.itemid AS transfusion_itemid
+        MIN(bt.starttime) AS transfusion_starttime,
+        MAX(bt.endtime) AS transfusion_endtime
     FROM
         physionet-data.mimiciii_clinical.inputevents_mv bt
+    WHERE
+        bt.itemid IN (225168, 225170, 225171, 220970, 227532) -- Transfusion-related items
+    GROUP BY bt.subject_id, bt.hadm_id, bt.icustay_id
+),
+
+-- Step 3: Identify temperature readings post-transfusion
+temperature_readings AS (
+    SELECT
+        te.subject_id,
+        te.hadm_id,
+        te.icustay_id,
+        te.transfusion_starttime,
+        te.transfusion_endtime,
+        ce.charttime AS temp_recorded_time,
+        ce.valuenum AS temperature_fahrenheit
+    FROM
+        transfusion_events te
     JOIN
         physionet-data.mimiciii_clinical.chartevents ce
     ON
-        bt.subject_id = ce.subject_id
-        AND bt.icustay_id = ce.icustay_id
+        te.subject_id = ce.subject_id
+        AND te.icustay_id = ce.icustay_id
         AND ce.itemid IN (223761, 676) -- Temperature measurements
     WHERE
-        bt.itemid IN (225168, 225170, 225171, 227070, 227071, 227072, 220970, 227532, 226367, 226368, 226369, 226371)
-        AND ce.charttime >= bt.starttime
+        ce.charttime BETWEEN te.transfusion_starttime AND TIMESTAMP_ADD(te.transfusion_endtime, INTERVAL 4 HOUR)
 ),
 
--- Step 3: Check for patients meeting FNHTR criteria using Fahrenheit thresholds
-potential_fnthr AS (
+-- Step 4: Check for patients meeting FNHTR criteria
+fnthr_candidates AS (
     SELECT
-        tt.subject_id,
-        tt.hadm_id,
-        tt.icustay_id,
-        tt.transfusion_starttime,
-        tt.temp_recorded_time,
-        tt.temperature_fahrenheit,
-        COALESCE(bt.baseline_temp_f, 98.6) AS baseline_temp_f,
+        tr.subject_id,
+        tr.hadm_id,
+        tr.icustay_id,
+        tr.transfusion_starttime,
+        tr.temp_recorded_time,
+        tr.temperature_fahrenheit,
+        bt.baseline_temp_f,
         CASE 
-            WHEN bt.baseline_temp_f >= 98.6 AND tt.temperature_fahrenheit >= bt.baseline_temp_f + 1.8 THEN 'Temperature rise ≥1°C (1.8°F) above baseline'
-            WHEN tt.temperature_fahrenheit >= 100.4 THEN 'Temperature ≥38°C (100.4°F)'
+            WHEN tr.temperature_fahrenheit >= 100.4 THEN 'Temperature ≥38°C (100.4°F)'
+            WHEN bt.baseline_temp_f IS NOT NULL AND tr.temperature_fahrenheit >= bt.baseline_temp_f + 1.8 THEN 'Temperature rise ≥1°C (1.8°F) above baseline'
             ELSE NULL
         END AS fnthr_criteria
     FROM
-        transfusion_temp tt
+        temperature_readings tr
     LEFT JOIN
         baseline_temp bt
     ON
-        tt.subject_id = bt.subject_id
-        AND tt.hadm_id = bt.hadm_id
-        AND tt.icustay_id = bt.icustay_id
+        tr.subject_id = bt.subject_id
+        AND tr.hadm_id = bt.hadm_id
+        AND tr.icustay_id = bt.icustay_id
     WHERE
-        (bt.baseline_temp_f IS NULL OR tt.temperature_fahrenheit >= bt.baseline_temp_f + 1.8)
-        OR tt.temperature_fahrenheit >= 100.4
+        tr.temperature_fahrenheit >= 100.4
+        OR (bt.baseline_temp_f IS NOT NULL AND tr.temperature_fahrenheit >= bt.baseline_temp_f + 1.8)
 )
 
--- Step 6: Select all FNHTR candidates with relevant details
+-- Final Step: Select all FNHTR candidates with relevant details
 SELECT *
-FROM potential_fnthr
+FROM fnthr_candidates
 WHERE fnthr_criteria IS NOT NULL
 ORDER BY subject_id, transfusion_starttime;
