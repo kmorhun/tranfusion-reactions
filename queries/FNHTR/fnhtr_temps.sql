@@ -19,19 +19,44 @@ WITH baseline_temp AS (
     GROUP BY subject_id, hadm_id, icustay_id
 ),
 
--- Step 2: Identify transfusion events and define transfusion times
+-- Step 2: Define transfusion events with linkorderid
 transfusion_events AS (
-    SELECT
-        bt.subject_id,
-        bt.hadm_id,
-        bt.icustay_id,
-        MIN(bt.starttime) AS transfusion_starttime,
-        MAX(bt.endtime) AS transfusion_endtime
-    FROM
-        physionet-data.mimiciii_clinical.inputevents_mv bt
-    WHERE
-        bt.itemid IN (225168, 225170, 225171, 220970, 227532) -- Transfusion-related items
-    GROUP BY bt.subject_id, bt.hadm_id, bt.icustay_id
+    SELECT 
+        inputs.subject_id, 
+        inputs.hadm_id, 
+        inputs.icustay_id, 
+        inputs.linkorderid, -- Use linkorderid to identify unique transfusion events
+        MIN(inputs.starttime) AS transfusion_starttime,
+        MAX(inputs.endtime) AS transfusion_endtime, 
+        COUNT(inputs.endtime) AS num_segments,
+        DATETIME_DIFF(MAX(inputs.endtime), MIN(inputs.starttime), MINUTE) AS duration_minutes,
+        CASE 
+            WHEN inputs.amountuom = "uL" THEN SUM(inputs.amount * 1000) 
+            ELSE SUM(inputs.amount)
+        END AS amount,
+        CASE 
+            WHEN inputs.amountuom = "uL" THEN "ml"
+            ELSE inputs.amountuom 
+        END AS amountuom,
+        inputs.itemid, 
+        items.label
+    FROM 
+        physionet-data.mimiciii_clinical.inputevents_mv inputs
+    INNER JOIN 
+        physionet-data.mimiciii_clinical.d_items items 
+    ON 
+        inputs.itemid = items.itemid
+    WHERE 
+        inputs.itemid IN (225168, 225170, 225171, 220970, 227532) -- Transfusion-related items
+        AND NOT inputs.statusdescription = "Rewritten"
+    GROUP BY 
+        inputs.linkorderid, -- Ensure each linkorderid is counted as a unique event
+        inputs.subject_id, 
+        inputs.hadm_id, 
+        inputs.icustay_id, 
+        inputs.amountuom,
+        inputs.itemid,
+        items.label
 ),
 
 -- Step 3: Identify temperature readings post-transfusion
@@ -40,6 +65,7 @@ temperature_readings AS (
         te.subject_id,
         te.hadm_id,
         te.icustay_id,
+        te.linkorderid, -- Include linkorderid to link with specific transfusion events
         te.transfusion_starttime,
         te.transfusion_endtime,
         ce.charttime AS temp_recorded_time,
@@ -62,6 +88,7 @@ fnthr_candidates AS (
         tr.subject_id,
         tr.hadm_id,
         tr.icustay_id,
+        tr.linkorderid, -- Include linkorderid to track unique transfusion events
         tr.transfusion_starttime,
         tr.temp_recorded_time,
         tr.temperature_fahrenheit,
@@ -85,7 +112,16 @@ fnthr_candidates AS (
 )
 
 -- Final Step: Select all FNHTR candidates with relevant details
-SELECT *
+SELECT
+    linkorderid, -- Include linkorderid to track unique transfusion events
+    subject_id,
+    hadm_id,
+    icustay_id, 
+    transfusion_starttime,
+    temp_recorded_time,
+    temperature_fahrenheit,
+    baseline_temp_f,
+    fnthr_criteria
 FROM fnthr_candidates
 WHERE fnthr_criteria IS NOT NULL
-ORDER BY subject_id, transfusion_starttime;
+ORDER BY linkorderid, subject_id, transfusion_starttime;
