@@ -5,18 +5,29 @@ WITH baseline_temp AS (
         hadm_id,
         icustay_id,
         MIN(charttime) AS baseline_time,
-        MAX(valuenum) AS baseline_temp_f -- Baseline temperature before transfusion in Fahrenheit
+        MAX(
+            CASE 
+                WHEN itemid = 223761 THEN valuenum -- Fahrenheit readings
+                WHEN itemid = 223762 THEN (valuenum * 9/5) + 32 -- Convert Celsius to Fahrenheit
+                ELSE NULL
+            END
+        ) AS baseline_temp_f -- Baseline temperature in Fahrenheit
     FROM
         physionet-data.mimiciii_clinical.chartevents
     WHERE
-        itemid IN (223761, 676) -- Temperature measurements
+        itemid IN (223761, 223762) -- Include both Fahrenheit and Celsius
+        AND (
+            (itemid = 223761 AND valuenum BETWEEN 86 AND 109.4) -- Fahrenheit: 86°F to 109.4°F
+            OR (itemid = 223762 AND valuenum BETWEEN 30 AND 43) -- Celsius: 30°C to 43°C
+        )
         AND charttime < (
             SELECT MIN(starttime)
             FROM physionet-data.mimiciii_clinical.inputevents_mv
             WHERE subject_id = chartevents.subject_id
               AND itemid IN (225168, 225170, 225171, 220970, 227532)
         )
-    GROUP BY subject_id, hadm_id, icustay_id
+    GROUP BY 
+        subject_id, hadm_id, icustay_id
 ),
 
 -- Step 2: Define transfusion events with linkorderid
@@ -69,7 +80,11 @@ temperature_readings AS (
         te.transfusion_starttime,
         te.transfusion_endtime,
         ce.charttime AS temp_recorded_time,
-        ce.valuenum AS temperature_fahrenheit
+        CASE 
+            WHEN ce.itemid = 223761 THEN ce.valuenum -- Fahrenheit readings
+            WHEN ce.itemid = 223762 THEN (ce.valuenum * 9/5) + 32 -- Convert Celsius to Fahrenheit
+            ELSE NULL
+        END AS temperature_fahrenheit -- Unified temperature in Fahrenheit
     FROM
         transfusion_events te
     JOIN
@@ -77,11 +92,14 @@ temperature_readings AS (
     ON
         te.subject_id = ce.subject_id
         AND te.icustay_id = ce.icustay_id
-        AND ce.itemid IN (223761, 676) -- Temperature measurements
+        AND ce.itemid IN (223761, 223762) -- Include both Fahrenheit and Celsius
     WHERE
         ce.charttime BETWEEN te.transfusion_starttime AND TIMESTAMP_ADD(te.transfusion_endtime, INTERVAL 4 HOUR)
+        AND (
+            (ce.itemid = 223761 AND ce.valuenum BETWEEN 86 AND 109.4) -- Fahrenheit: 86°F to 109.4°F
+            OR (ce.itemid = 223762 AND ce.valuenum BETWEEN 30 AND 43) -- Celsius: 30°C to 43°C
+        )
 ),
-
 -- Step 4: Check for patients meeting FNHTR criteria
 fnthr_candidates AS (
     SELECT
