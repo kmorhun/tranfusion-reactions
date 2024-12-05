@@ -35,7 +35,8 @@ CREATE TEMPORARY TABLE before_lab AS
 SELECT 
     chart.SUBJECT_ID, 
     chart.CHARTTIME, 
-    abi.starttime, 
+    abi.starttime,
+    abi.linkorderid, 
     d_items.ITEMID, 
     d_items.LABEL, 
     chart.VALUE, 
@@ -53,7 +54,7 @@ WHERE
     chart.CHARTTIME BETWEEN 
         abi.starttime - INTERVAL 12 HOUR 
         AND 
-        abi.starttime
+        abi.endtime + INTERVAL 5 MINUTE
     AND 
     d_items.LABEL IN (
         'Heart Rate', 
@@ -80,6 +81,7 @@ SELECT
     chart.SUBJECT_ID, 
     chart.CHARTTIME, 
     abi.endtime, 
+    abi.linkorderid, 
     d_items.ITEMID, 
     d_items.LABEL, 
     chart.VALUE, 

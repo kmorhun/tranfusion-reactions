@@ -35,7 +35,8 @@ CREATE TEMPORARY TABLE before_lab AS
 SELECT 
     chart.SUBJECT_ID, 
     chart.CHARTTIME, 
-    abi.starttime, 
+    abi.starttime,
+    abi.linkorderid, 
     d_items.ITEMID, 
     d_items.LABEL, 
     chart.VALUE, 
@@ -80,6 +81,7 @@ SELECT
     chart.SUBJECT_ID, 
     chart.CHARTTIME, 
     abi.endtime, 
+    abi.linkorderid,
     d_items.ITEMID, 
     d_items.LABEL, 
     chart.VALUE, 
