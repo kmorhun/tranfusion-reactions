@@ -12,6 +12,7 @@ WITH baseline_temp AS (
                 ELSE NULL
             END
         ) AS baseline_temp_f -- Baseline temperature in Fahrenheit
+        
     FROM
         physionet-data.mimiciii_clinical.chartevents
     WHERE
@@ -112,8 +113,7 @@ fnthr_candidates AS (
         tr.temperature_fahrenheit,
         bt.baseline_temp_f,
         CASE 
-            WHEN tr.temperature_fahrenheit >= 100.4 THEN 'Temperature ≥38°C (100.4°F)'
-            WHEN bt.baseline_temp_f IS NOT NULL AND tr.temperature_fahrenheit >= bt.baseline_temp_f + 1.8 THEN 'Temperature rise ≥1°C (1.8°F) above baseline'
+            WHEN tr.temperature_fahrenheit >= 100.4 AND bt.baseline_temp_f IS NOT NULL AND tr.temperature_fahrenheit >= bt.baseline_temp_f + 1.8 THEN 'Temperature ≥38°C (100.4°F) & Temperature rise ≥1°C (1.8°F) above baseline'
             ELSE NULL
         END AS fnthr_criteria
     FROM
